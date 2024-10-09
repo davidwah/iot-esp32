@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Sensor - Iot SMK Telkom SDA</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Label "Terhubung" -->
+  <div class="status">
+    <p id="status">Terputus</p>
+  </div>
+
+  <!-- Logo SKOMDA -->
+  <header>
+    <img src="https://new.smktelkom-sda.sch.id/wp-content/uploads/2024/05/Logo.png" alt="Logo SKOMDA" class="logo">
+  </header>
+
+  <div>
+    <div class="container">
+      <div class="card">
+        <!-- SUHU -->
+        <h2>Sensor Suhu</h2>
+        <p class="data"><b id="suhu">?</b>°C</p>
+      </div>
+      <!-- KELEMBABAN -->
+      <div class="card">
+        <h2>Sensor Kelembaban</h2>
+        <p class="data"><b id="kelembapan">?</b>%</p>
+      </div>
+      <!-- LAMPU -->
+      <div class="card">
+        <h2>Kendalikan Lampu</h2>
+        <label class="switch">
+          <input type="checkbox" id="lamp-switch" onchange="publishLampu()">
+          <span class="slider" id="slider-lamp"></span>
+        </label>
+      </div>
+      <!-- Card untuk mengirim teks ke LCD -->
+      <div class="card">
+        <h2>Kirim Teks ke LCD</h2>
+        <input type="text" id="lcd-text" placeholder="Masukkan teks"/>
+        <button id="send-btn" onclick="sendLCD()">Kirim</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabel Status Koneksi -->
+  <div class="table-container">
+    <h1>Status Perangkat</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Nomor Seri</th>
+          <th>Status Koneksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2024DWP</td>
+          <td><span class="disconnected" id="2024DWP">Terputus</span></td>
+        </tr>
+        <tr>
+          <td>12346B</td>
+          <td><span class="disconnected">Terputus</span></td>
+        </tr>
+        <tr>
+          <td>12347C</td>
+          <td><span class="disconnected">Terputus</span></Terpud>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <p><a href="https://dwp.my.id/">DWP</a> &copy; 2024. All Rights Reserved.</p>
+  </footer>
+</body>
+
+
+<!-- SCRIPT FUNCTION -->
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        const clientId = Math.random().toString(16).substr(2, 8);
+        const host = 'wss://broker.emqx.io:8084/mqtt';
+
+        const options = {
+          keepalive: 30,
+          clientId: clientId,
+          protocolId: 'MQTT',
+          protocolVersion: 4,
+          clean: true,
+          reconnectPeriod: 1000,
+          connectTimeout: 30 * 1000
+        }
+
+        console.log("Menghubungkan ke Broker");
+        const client = mqtt.connect(host, options);
+
+        client.on('connect', () => {
+          console.log('Terhubung ke broker:' + clientId)
+          client.subscribe('SMK-Telkom-Sidoarjo/2024/#', { qos: 1 })
+          document.getElementById("status").innerHTML = "Terhubung";
+        })
+
+        client.on('message', (topic, message, packet) => {
+          if(topic === "SMK-Telkom-Sidoarjo/2024/suhu"){
+            document.getElementById("suhu").innerHTML = message;
+          }
+          if(topic === "SMK-Telkom-Sidoarjo/2024/kelembaban"){
+            document.getElementById("kelembapan").innerHTML = message;
+          }
+          if(topic === "SMK-Telkom-Sidoarjo/2024/lcd"){
+            document.getElementById("lcd-text").value = message;
+          }
+
+          if(topic === "SMK-Telkom-Sidoarjo/2024/lampu"){
+            const lampSwitch = document.getElementById("lamp-switch");
+            var slider = document.querySelector('.slider');
+
+            if(message.toString() === "on"){
+              lampSwitch.checked = true;
+              slider.classList.add("on");
+            } else {
+              lampSwitch.checked = false;
+              slider.classList.remove("off");
+            }
+          }
+
+          // Status perangkat
+          if(topic === "SMK-Telkom-Sidoarjo/2024/2024DWP"){
+            document.getElementById("2024DWP").innerHTML = message;
+            if(message.toString() === "Terhubung"){
+              document.getElementById("2024DWP").classList.add("connected");
+              document.getElementById("2024DWP").classList.remove("disconnected");
+            } else {
+              document.getElementById("2024DWP").classList.add("disconnected");
+              document.getElementById("2024DWP").classList.remove("connected");
+            }
+          }
+        })
+
+        function publishLampu(){
+          var valueLampu = document.querySelector('#lamp-switch').checked;
+          if(valueLampu){
+            client.publish("SMK-Telkom-Sidoarjo/2024/lampu", "on", {qos: 1, retain: true});
+          }else{
+            client.publish("SMK-Telkom-Sidoarjo/2024/lampu", "off", {qos: 1, retain: true});
+          }
+        }
+
+        function sendLCD(){
+          var valueLCD = document.getElementById("lcd-text").value;
+          client.publish("SMK-Telkom-Sidoarjo/2024/lcd", valueLCD, {qos: 1, retain: true});
+        }
+    </script>
+</html>
